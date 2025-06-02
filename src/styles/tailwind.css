@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Primary Colors */
+  --color-primary: #4F46E5; /* Primary actions, key interactive elements, and brand identity - indigo-600 */
+  --color-primary-hover: #4338CA; /* Hover state for primary buttons and interactive elements - indigo-700 */
+  --color-primary-light: #E0E7FF; /* Backgrounds for selected items, highlights, and secondary indicators - indigo-100 */
+  --color-primary-50: #F5F7FF; /* Lightest primary shade - indigo-50 */
+  --color-primary-100: #E0E7FF; /* Light primary shade - indigo-100 */
+  --color-primary-200: #C7D2FE; /* Light primary shade - indigo-200 */
+  --color-primary-300: #A5B4FC; /* Light primary shade - indigo-300 */
+  --color-primary-400: #818CF8; /* Medium primary shade - indigo-400 */
+  --color-primary-500: #6366F1; /* Medium primary shade - indigo-500 */
+  --color-primary-600: #4F46E5; /* Primary brand color - indigo-600 */
+  --color-primary-700: #4338CA; /* Dark primary shade - indigo-700 */
+  --color-primary-800: #3730A3; /* Dark primary shade - indigo-800 */
+  --color-primary-900: #312E81; /* Darkest primary shade - indigo-900 */
+
+  /* Neutral Colors */
+  --color-background: #FFFFFF; /* Main application background - white */
+  --color-surface: #F9FAFB; /* Card backgrounds, secondary surfaces - gray-50 */
+  --color-border: #E5E7EB; /* Subtle borders and dividers - gray-200 */
+  --color-border-strong: #D1D5DB; /* More prominent borders for form elements - gray-300 */
+  --color-text-primary: #111827; /* Primary text content - gray-900 */
+  --color-text-secondary: #4B5563; /* Secondary text, descriptions, and labels - gray-600 */
+  --color-text-tertiary: #9CA3AF; /* Placeholder text and disabled states - gray-400 */
+
+  /* Semantic Colors */
+  --color-success: #059669; /* Success states, confirmations, and positive actions - emerald-600 */
+  --color-success-light: #ECFDF5; /* Background for success messages and indicators - emerald-50 */
+  --color-warning: #F59E0B; /* Warning states and cautionary indicators - amber-500 */
+  --color-warning-light: #FFFBEB; /* Background for warning messages - amber-50 */
+  --color-error: #DC2626; /* Error states, destructive actions, and critical alerts - red-600 */
+  --color-error-light: #FEF2F2; /* Background for error messages - red-50 */
+  --color-info: #2563EB; /* Informational states and neutral indicators - blue-600 */
+  --color-info-light: #EFF6FF; /* Background for informational messages - blue-50 */
+}
+
+@layer base {
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: var(--color-text-primary);
+    background-color: var(--color-background);
+  }
+}
