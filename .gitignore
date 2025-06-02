@@ -5,3 +5,6 @@ package-lock.json
 /build
 .vscode/
 .idea/
+.env
+ragenv/
+.cursor
