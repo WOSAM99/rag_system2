@@ -96,7 +96,7 @@ const LoginDashboard = () => {
   };
 
   const handleCreateProfile = () => {
-    navigate('/profile-management');
+    navigate('/system-prompts');
   };
 
   const handleChatWithProfile = (profileId) => {
@@ -108,7 +108,7 @@ const LoginDashboard = () => {
   };
 
   const handleEditProfile = (profileId) => {
-    navigate(`/profile-management?edit=${profileId}`);
+    navigate(`/system-prompts?edit=${profileId}`);
   };
 
   const handleDeleteProfile = async (profileId) => {

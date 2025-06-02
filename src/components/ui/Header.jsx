@@ -10,8 +10,8 @@ const Header = ({ variant = 'default' }) => {
 
   const navigationItems = [
     { name: 'Dashboard', path: '/login-dashboard', icon: 'LayoutDashboard' },
-    { name: 'Profile Management', path: '/profile-management', icon: 'Users' },
-    { name: 'Chat Interface', path: '/chat-interface', icon: 'MessageSquare' },
+    { name: 'System Prompts', path: '/system-prompts', icon: 'MessageSquare' },
+    { name: 'Chat Interface', path: '/chat-interface', icon: 'MessageCircle' },
     { name: 'Document Upload', path: '/document-upload', icon: 'Upload' },
   ];
 

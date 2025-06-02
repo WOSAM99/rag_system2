@@ -10,7 +10,7 @@ const Sidebar = ({ variant = 'expanded' }) => {
 
   const navigationItems = [
     { name: 'Dashboard', path: '/login-dashboard', icon: 'LayoutDashboard' },
-    { name: 'Profile Management', path: '/profile-management', icon: 'Users' },
+    { name: 'System Prompts', path: '/system-prompts', icon: 'MessageSquare' },
     { name: 'Chat Interface', path: '/chat-interface', icon: 'MessageSquare' },
     { name: 'Document Upload', path: '/document-upload', icon: 'Upload' },
   ];
