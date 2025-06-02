@@ -7,211 +7,112 @@ import QueryInput from './components/QueryInput';
 import SourceDocumentList from './components/SourceDocumentList';
 import ActionButton from '../login-dashboard/components/ActionButton';
 import Icon from '../../components/AppIcon';
+import { getCurrentUser } from '../../config/supabase';
+import { getProfile } from '../../services/profilesApi';
+import { getActiveSystemPrompts } from '../../services/systemPromptsApi';
+import { getDocumentsByProfile } from '../../services/documentsApi';
+import { 
+  getConversationsByProfile,
+  getMessagesByConversation,
+  createConversation,
+  createMessage
+} from '../../services/conversationsApi';
 
 const ChatInterface = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState(null);
+  const [systemPrompts, setSystemPrompts] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [currentConversation, setCurrentConversation] = useState(null);
+  const [conversations, setConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [documentCount, setDocumentCount] = useState(0);
   const [expandedSources, setExpandedSources] = useState({});
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
 
-  // Mock data for profiles - should match the dashboard data
-  const mockProfiles = [
-    {
-      id: 1,
-      name: "Research Assistant",
-      description: "Specialized in academic research and paper analysis. Helps with literature reviews, citation management, and research methodology.",
-      documentCount: 24,
-      createdAt: "2024-01-15",
-      lastUsed: "2024-01-20"
-    },
-    {
-      id: 2,
-      name: "Technical Writer", 
-      description: "Expert in creating technical documentation, API guides, and software manuals. Optimized for clear, concise technical communication.",
-      documentCount: 18,
-      createdAt: "2024-01-10",
-      lastUsed: "2024-01-19"
-    },
-    {
-      id: 3,
-      name: "Legal Advisor",
-      description: "Trained on legal documents and case studies. Assists with contract analysis, legal research, and compliance documentation.",
-      documentCount: 32,
-      createdAt: "2024-01-08",
-      lastUsed: "2024-01-18"
-    },
-    {
-      id: 4,
-      name: "Marketing Strategist",
-      description: "Focused on marketing campaigns, brand strategy, and customer engagement. Helps create compelling marketing content and strategies.",
-      documentCount: 15,
-      createdAt: "2024-01-12",
-      lastUsed: "2024-01-17"
-    }
-  ];
-
-  // System prompts data - this should match the system-prompts page data
-  const mockSystemPrompts = [
-    {
-      id: 1,
-      name: "General Assistant",
-      description: "Helpful, harmless, and honest responses for general queries",
-      prompt: "You are a helpful AI assistant. Provide accurate, informative, and well-structured responses based on the provided context. Be concise yet comprehensive, and always cite your sources when referencing specific documents.",
-      isActive: true
-    },
-    {
-      id: 2,
-      name: "Research Analyst",
-      description: "Academic and research-focused responses with citations",
-      prompt: "You are a research analyst with expertise in academic writing and analysis. Provide detailed, evidence-based analysis with proper citations and academic rigor. Structure your responses with clear methodology, findings, and conclusions. Always reference specific documents and page numbers when available.",
-      isActive: true
-    },
-    {
-      id: 3,
-      name: "Technical Expert",
-      description: "Technical documentation and code assistance",
-      prompt: "You are a technical expert specializing in software development and system architecture. Provide precise, actionable technical guidance with code examples and best practices. Focus on practical implementation details and include relevant security considerations.",
-      isActive: false
-    },
-    {
-      id: 4,
-      name: "Legal Advisor",
-      description: "Legal document analysis and compliance guidance",
-      prompt: "You are a legal advisor assistant. Analyze legal documents with attention to compliance, risks, and regulatory requirements. Provide structured analysis highlighting key clauses, potential issues, and recommendations. Always include disclaimers about seeking professional legal counsel.",
-      isActive: true
-    }
-  ];
-
-  // Filter only active system prompts for selection
-  const activeSystemPrompts = mockSystemPrompts.filter(prompt => prompt.isActive);
-
-  // Mock chat history per profile
-  const mockChatHistory = {
-    1: [ // Research Assistant chat history
-      {
-        id: 1,
-        type: 'user',
-        content: "What are the key principles of machine learning?",
-        timestamp: new Date(Date.now() - 3600000),
-        profileId: 1
-      },
-      {
-        id: 2,
-        type: 'assistant',
-        content: `Based on the research documents in your Knowledge base, here are the key principles of machine learning:
-
-**1. Data-Driven Learning**
-Machine learning algorithms learn patterns from data rather than being explicitly programmed. The quality and quantity of data directly impact model performance.
-
-**2. Generalization**
-Models should perform well on unseen data, not just training data. This requires balancing model complexity to avoid overfitting or underfitting.
-
-**3. Feature Engineering**
-Selecting and transforming relevant features from raw data is crucial for model success. Good features make learning easier and more effective.
-
-**4. Iterative Improvement**
-ML development is iterative - involving data collection, model training, evaluation, and refinement cycles.`,
-        timestamp: new Date(Date.now() - 3590000),
-        profileId: 1,
-        sources: [
-          {
-            id: 1,
-            title: "machine_learning_principles.pdf",
-            excerpt: "Statistical learning refers to a vast set of tools for understanding data...",
-            page: 15,
-            confidence: 0.92
-          },
-          {
-            id: 2,
-            title: "statistical_learning_intro.docx",
-            excerpt: "The goal of machine learning is to build computer systems that can adapt and learn from their experience...",
-            page: 3,
-            confidence: 0.88
-          }
-        ]
-      }
-    ],
-    2: [ // Technical Writer chat history
-      {
-        id: 3,
-        type: 'user',
-        content: "How should I structure API documentation?",
-        timestamp: new Date(Date.now() - 7200000),
-        profileId: 2
-      },
-      {
-        id: 4,
-        type: 'assistant',
-        content: `Based on your technical documentation resources, here's how to structure effective API documentation:
-
-**1. Overview Section**
-- Brief description of the API's purpose
-- Authentication requirements
-- Base URL and versioning
-
-**2. Endpoint Documentation**
-- HTTP methods and URLs
-- Request/response examples
-- Parameter descriptions
-
-**3. Error Handling**
-- Standard error codes
-- Error response formats
-- Troubleshooting guides`,
-        timestamp: new Date(Date.now() - 7190000),
-        profileId: 2,
-        sources: [
-          {
-            id: 3,
-            title: "api_documentation_guide.pdf",
-            excerpt: "Effective API documentation should include clear examples and comprehensive error handling...",
-            page: 8,
-            confidence: 0.94
-          }
-        ]
-      }
-    ],
-    3: [], // Legal Advisor - no chat history yet
-    4: []  // Marketing Strategist - no chat history yet
-  };
-
-  // Read profile ID from URL parameters and load profile data
+  // Load profile and related data from URL parameter
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const profileParam = urlParams.get('profile');
-    
-    if (profileParam) {
-      const selectedProfileId = parseInt(profileParam);
-      const profile = mockProfiles.find(p => p.id === selectedProfileId);
+    const loadProfileData = async () => {
+      const urlParams = new URLSearchParams(location.search);
+      const profileParam = urlParams.get('profile');
       
-      if (profile) {
-        setSelectedProfile(profile);
-        setDocumentCount(profile.documentCount);
-        
-        // Load chat history for this specific profile
-        const profileMessages = mockChatHistory[selectedProfileId] || [];
-        setMessages(profileMessages);
-      } else {
-        setError(`Profile with ID ${profileParam} not found.`);
+      if (!profileParam) {
+        setError('No profile selected. Please select a profile from the dashboard.');
+        setIsLoadingProfile(false);
+        return;
       }
-    } else {
-      // No profile specified, show profile selection
-      setError('No profile selected. Please select a profile from the dashboard.');
-    }
-  }, [location.search]);
 
-  useEffect(() => {
-    // Set default system prompt when component loads
-    if (activeSystemPrompts.length > 0 && !selectedSystemPrompt) {
-      setSelectedSystemPrompt(activeSystemPrompts[0]);
-    }
-  }, [activeSystemPrompts]);
+      try {
+        setIsLoadingProfile(true);
+        setError(null);
+
+        // Check authentication
+        const user = getCurrentUser();
+        if (!user) {
+          setError('You must be logged in to access the chat interface.');
+          setIsLoadingProfile(false);
+          return;
+        }
+
+        console.log('Loading profile with ID:', profileParam);
+
+        // Load profile data - use profileParam directly as it's already a UUID string
+        const profile = await getProfile(profileParam);
+        console.log('Profile loaded:', profile);
+        setSelectedProfile(profile);
+
+        // Load documents count for this profile
+        const documents = await getDocumentsByProfile(profileParam);
+        setDocumentCount(documents.length);
+
+        // Load system prompts
+        const prompts = await getActiveSystemPrompts();
+        console.log('System prompts loaded:', prompts);
+        setSystemPrompts(prompts);
+
+        // Set default system prompt
+        if (prompts.length > 0) {
+          setSelectedSystemPrompt(prompts[0]);
+        }
+
+        // Load conversations for this profile
+        const profileConversations = await getConversationsByProfile(profileParam);
+        console.log('Conversations loaded:', profileConversations);
+        setConversations(profileConversations);
+
+        // Load messages from the most recent conversation or start fresh
+        if (profileConversations.length > 0) {
+          const latestConversation = profileConversations[0];
+          setCurrentConversation(latestConversation);
+          const conversationMessages = await getMessagesByConversation(latestConversation.id);
+          
+          // Transform messages to match component expectations
+          const transformedMessages = conversationMessages.map(msg => ({
+            id: msg.id,
+            type: msg.role, // 'user' or 'assistant'
+            content: msg.content,
+            timestamp: new Date(msg.createdAt),
+            profileId: profileParam,
+            sources: [] // Add sources handling when available
+          }));
+          
+          setMessages(transformedMessages);
+        }
+
+      } catch (err) {
+        console.error('Error loading profile data:', err);
+        setError(`Failed to load profile: ${err.message}`);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadProfileData();
+  }, [location.search]);
 
   useEffect(() => {
     scrollToBottom();
@@ -228,23 +129,38 @@ ML development is iterative - involving data collection, model training, evaluat
   const handleSendMessage = async (query) => {
     if (!query.trim() || isLoading || !selectedProfile || !selectedSystemPrompt) return;
 
-    const userMessage = {
-      id: Date.now(),
-      type: 'user',
-      content: query,
-      timestamp: new Date(),
-      profileId: selectedProfile.id
-    };
+    try {
+      setIsLoading(true);
 
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
+      // Create new conversation if none exists
+      let conversation = currentConversation;
+      if (!conversation) {
+        const conversationTitle = query.length > 50 ? query.substring(0, 50) + '...' : query;
+        conversation = await createConversation(
+          selectedProfile.id,
+          conversationTitle,
+          selectedSystemPrompt.id
+        );
+        setCurrentConversation(conversation);
+        setConversations(prev => [conversation, ...prev]);
+      }
 
-    // Simulate API call with profile and system prompt context
-    setTimeout(() => {
-      const assistantMessage = {
-        id: Date.now() + 1,
-        type: 'assistant',
-        content: `**[Profile: ${selectedProfile.name} | System Prompt: ${selectedSystemPrompt.name}]**
+      // Add user message to UI immediately
+      const userMessage = {
+        id: Date.now(),
+        type: 'user',
+        content: query,
+        timestamp: new Date(),
+        profileId: selectedProfile.id
+      };
+      setMessages(prev => [...prev, userMessage]);
+
+      // Save user message to database
+      await createMessage(conversation.id, 'user', query, selectedSystemPrompt.id);
+
+      // Simulate AI response (in real implementation, this would call your backend)
+      setTimeout(async () => {
+        const assistantResponse = `**[Profile: ${selectedProfile.name} | System Prompt: ${selectedSystemPrompt.name}]**
 
 Based on your query about "${query}", here's a comprehensive response:
 
@@ -252,7 +168,7 @@ This response is generated using the **${selectedSystemPrompt.name}** system pro
 
 **System Prompt Behavior**: ${selectedSystemPrompt.description}
 
-The AI would analyze the ${selectedProfile.documentCount} documents in this profile to provide:
+The AI would analyze the ${documentCount} documents in this profile to provide:
 - Relevant information extracted from your ${selectedProfile.name} documents
 - Proper citations and source references
 - Context-aware insights based on "${selectedProfile.description}"
@@ -264,23 +180,40 @@ In a real implementation, this response would be generated by:
 1. **Profile ID**: ${selectedProfile.id}
 2. **System Prompt ID**: ${selectedSystemPrompt.id}
 3. **User Query**: "${query}"
-4. **Document Context**: From ${selectedProfile.documentCount} indexed documents`,
-        timestamp: new Date(),
-        profileId: selectedProfile.id,
-        sources: [
-          {
-            id: 1,
-            title: `Sample document from ${selectedProfile.name}`,
-            excerpt: `Relevant excerpt from your ${selectedProfile.name} documents related to: ${query}`,
-            page: Math.floor(Math.random() * 100) + 1,
-            confidence: 0.85 + Math.random() * 0.15
-          }
-        ]
-      };
+4. **Document Context**: From ${documentCount} indexed documents
 
-      setMessages(prev => [...prev, assistantMessage]);
+*Note: This is a demonstration response. In production, this would be replaced with actual AI processing using your documents and the selected system prompt.*`;
+
+        const assistantMessage = {
+          id: Date.now() + 1,
+          type: 'assistant',
+          content: assistantResponse,
+          timestamp: new Date(),
+          profileId: selectedProfile.id,
+          sources: [
+            {
+              id: 1,
+              title: `Sample document from ${selectedProfile.name}`,
+              excerpt: `Relevant excerpt from your ${selectedProfile.name} documents related to: ${query}`,
+              page: Math.floor(Math.random() * 100) + 1,
+              confidence: 0.85 + Math.random() * 0.15
+            }
+          ]
+        };
+
+        setMessages(prev => [...prev, assistantMessage]);
+
+        // Save assistant message to database
+        await createMessage(conversation.id, 'assistant', assistantResponse, selectedSystemPrompt.id);
+        
+        setIsLoading(false);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setError(`Failed to send message: ${error.message}`);
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   const handleBackToDashboard = () => {
@@ -337,12 +270,34 @@ In a real implementation, this response would be generated by:
     );
   }
 
-  if (!selectedProfile) {
+  if (isLoadingProfile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-text-secondary">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedProfile) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header variant="compact" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-warning-light border border-warning border-opacity-20 rounded-lg p-6 text-center">
+            <Icon name="AlertTriangle" size={48} className="text-warning mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-text-primary mb-2">No Profile Selected</h2>
+            <p className="text-text-secondary mb-4">Please select a profile from the dashboard to start chatting.</p>
+            <ActionButton
+              variant="primary"
+              onClick={() => navigate('/login-dashboard')}
+            >
+              <Icon name="ArrowLeft" size={16} className="mr-2" />
+              Back to Dashboard
+            </ActionButton>
+          </div>
         </div>
       </div>
     );
@@ -367,7 +322,7 @@ In a real implementation, this response would be generated by:
               <h1 className="text-2xl font-bold text-text-primary">Chat Interface</h1>
               <p className="text-text-secondary">
                 Profile: <span className="font-medium text-text-primary">{selectedProfile.name}</span>
-                <span className="text-text-tertiary ml-2">• ID: {selectedProfile.id}</span>
+                <span className="text-text-tertiary ml-2">• {documentCount} documents</span>
               </p>
               <p className="text-sm text-text-tertiary mt-1">
                 {selectedProfile.description}
@@ -405,7 +360,7 @@ In a real implementation, this response would be generated by:
             </button>
           </div>
           
-          {activeSystemPrompts.length === 0 ? (
+          {systemPrompts.length === 0 ? (
             <div className="bg-warning-light border border-warning border-opacity-20 rounded-lg p-4">
               <div className="flex items-center gap-3">
                 <Icon name="AlertTriangle" size={20} className="text-warning" />
@@ -425,7 +380,7 @@ In a real implementation, this response would be generated by:
             </div>
           ) : (
             <SystemPromptSelector
-              systemPrompts={activeSystemPrompts}
+              systemPrompts={systemPrompts}
               selectedPrompt={selectedSystemPrompt}
               onPromptChange={handleSystemPromptChange}
             />
@@ -442,7 +397,7 @@ In a real implementation, this response would be generated by:
               </p>
             </div>
             <div className="text-right text-sm text-text-tertiary">
-              <div>Profile ID: {selectedProfile.id}</div>
+              <div>Conversations: {conversations.length}</div>
               <div>{documentCount} indexed documents</div>
             </div>
           </div>
@@ -494,14 +449,14 @@ In a real implementation, this response would be generated by:
               isLoading={isLoading}
               disabled={!selectedProfile || !selectedSystemPrompt}
             />
-            {!selectedSystemPrompt && activeSystemPrompts.length > 0 && (
+            {!selectedSystemPrompt && systemPrompts.length > 0 && (
               <p className="mt-2 text-sm text-text-tertiary">
                 Select a system prompt above to start chatting
               </p>
             )}
             {selectedProfile && selectedSystemPrompt && (
               <p className="mt-2 text-xs text-text-tertiary">
-                Profile: {selectedProfile.name} (ID: {selectedProfile.id}) • System Prompt: {selectedSystemPrompt.name} (ID: {selectedSystemPrompt.id})
+                Profile: {selectedProfile.name} • System Prompt: {selectedSystemPrompt.name}
               </p>
             )}
           </div>

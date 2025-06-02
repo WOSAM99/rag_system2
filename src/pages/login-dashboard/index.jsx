@@ -5,7 +5,10 @@ import LoginForm from './components/LoginForm';
 import ProfileCard from './components/ProfileCard';
 import ActionButton from './components/ActionButton';
 import EmptyState from './components/EmptyState';
+import CreateProfileForm from './components/CreateProfileForm';
 import Icon from '../../components/AppIcon';
+import { ensureUserExists, getCurrentUser } from '../../config/supabase';
+import { getProfiles, createProfile, updateProfile, deleteProfile } from '../../services/profilesApi';
 
 const LoginDashboard = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -13,43 +16,10 @@ const LoginDashboard = () => {
   const [profiles, setProfiles] = useState([]);
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
   const [error, setError] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(null);
   const navigate = useNavigate();
-
-  // Mock profiles data
-  const mockProfiles = [
-    {
-      id: 1,
-      name: "Research Assistant",
-      description: "Specialized in academic research and paper analysis. Helps with literature reviews, citation management, and research methodology.",
-      documentCount: 24,
-      createdAt: "2024-01-15",
-      lastUsed: "2024-01-20"
-    },
-    {
-      id: 2,
-      name: "Technical Writer",
-      description: "Expert in creating technical documentation, API guides, and software manuals. Optimized for clear, concise technical communication.",
-      documentCount: 18,
-      createdAt: "2024-01-10",
-      lastUsed: "2024-01-19"
-    },
-    {
-      id: 3,
-      name: "Legal Advisor",
-      description: "Trained on legal documents and case studies. Assists with contract analysis, legal research, and compliance documentation.",
-      documentCount: 32,
-      createdAt: "2024-01-08",
-      lastUsed: "2024-01-18"
-    },
-    {
-      id: 4,
-      name: "Marketing Strategist",
-      description: "Focused on marketing campaigns, brand strategy, and customer engagement. Helps create compelling marketing content and strategies.",
-      documentCount: 15,
-      createdAt: "2024-01-12",
-      lastUsed: "2024-01-17"
-    }
-  ];
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -64,11 +34,11 @@ const LoginDashboard = () => {
   const loadProfiles = async () => {
     setIsLoadingProfiles(true);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setProfiles(mockProfiles);
+      const profilesData = await getProfiles();
+      setProfiles(profilesData);
       setError(null);
     } catch (err) {
+      console.error('Error loading profiles:', err);
       setError('Failed to load profiles. Please try again.');
     } finally {
       setIsLoadingProfiles(false);
@@ -78,6 +48,8 @@ const LoginDashboard = () => {
   const handleLogin = async (credentials) => {
     try {
       setIsLoading(true);
+      setError(null); // Clear any previous errors
+      
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
       
@@ -85,18 +57,58 @@ const LoginDashboard = () => {
       const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mocktoken';
       localStorage.setItem('jwt_token', mockToken);
       
+      // Get current user info (this generates UUID if needed)
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        throw new Error('Failed to get user information');
+      }
+      
+      // Ensure user exists in Supabase
+      const userData = {
+        id: currentUser.id,
+        email: credentials.email || 'user@example.com'
+      };
+      
+      console.log('Creating user with data:', userData); // Debug log
+      const userResult = await ensureUserExists(userData);
+      console.log('User creation result:', userResult); // Debug log
+      
+      if (!userResult) {
+        throw new Error('Failed to create or verify user in database');
+      }
+      
       setIsAuthenticated(true);
+      
+      // Load profiles after user is confirmed to exist
       await loadProfiles();
-      setError(null);
+      
     } catch (err) {
-      setError('Login failed. Please check your credentials.');
+      console.error('Login error:', err);
+      setError(`Login failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCreateProfile = () => {
-    navigate('/system-prompts');
+    setShowCreateModal(true);
+  };
+
+  const handleCreateNewProfile = async (profileData) => {
+    setIsCreatingProfile(true);
+    try {
+      console.log('Creating profile with data:', profileData); // Debug log
+      const newProfile = await createProfile(profileData);
+      console.log('Profile created successfully:', newProfile); // Debug log
+      setProfiles(prev => [newProfile, ...prev]);
+      setShowCreateModal(false);
+      setError(null);
+    } catch (err) {
+      console.error('Error creating profile:', err);
+      setError(`Failed to create profile: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsCreatingProfile(false);
+    }
   };
 
   const handleChatWithProfile = (profileId) => {
@@ -108,16 +120,39 @@ const LoginDashboard = () => {
   };
 
   const handleEditProfile = (profileId) => {
-    navigate(`/system-prompts?edit=${profileId}`);
+    const profile = profiles.find(p => p.id === profileId);
+    if (profile) {
+      setEditingProfile(profile);
+      setShowCreateModal(true);
+    }
+  };
+
+  const handleUpdateProfile = async (profileData) => {
+    setIsCreatingProfile(true);
+    try {
+      const updatedProfile = await updateProfile(editingProfile.id, profileData);
+      setProfiles(prev => prev.map(profile => 
+        profile.id === editingProfile.id ? updatedProfile : profile
+      ));
+      
+      setShowCreateModal(false);
+      setEditingProfile(null);
+      setError(null);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setError('Failed to update profile. Please try again.');
+    } finally {
+      setIsCreatingProfile(false);
+    }
   };
 
   const handleDeleteProfile = async (profileId) => {
     if (window.confirm('Are you sure you want to delete this profile? This action cannot be undone.')) {
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await deleteProfile(profileId);
         setProfiles(profiles.filter(profile => profile.id !== profileId));
       } catch (err) {
+        console.error('Error deleting profile:', err);
         setError('Failed to delete profile. Please try again.');
       }
     }
@@ -238,6 +273,41 @@ const LoginDashboard = () => {
           </div>
         )}
       </main>
+
+      {/* Create Profile Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-text-primary">
+                  {editingProfile ? 'Edit AI Profile' : 'Create New AI Profile'}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setEditingProfile(null);
+                  }}
+                  className="text-text-tertiary hover:text-text-secondary"
+                  disabled={isCreatingProfile}
+                >
+                  <Icon name="X" size={24} />
+                </button>
+              </div>
+              
+              <CreateProfileForm
+                onSubmit={editingProfile ? handleUpdateProfile : handleCreateNewProfile}
+                onCancel={() => {
+                  setShowCreateModal(false);
+                  setEditingProfile(null);
+                }}
+                isLoading={isCreatingProfile}
+                profile={editingProfile}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

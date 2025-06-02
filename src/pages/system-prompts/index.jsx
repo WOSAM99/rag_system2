@@ -5,6 +5,13 @@ import SystemPromptForm from './components/SystemPromptForm';
 import ConfirmationModal from './components/ConfirmationModal';
 import ActionButton from './components/ActionButton';
 import Icon from '../../components/AppIcon';
+import { 
+  getSystemPrompts, 
+  createSystemPrompt, 
+  updateSystemPrompt, 
+  deleteSystemPrompt, 
+  toggleSystemPromptActive 
+} from '../../services/systemPromptsApi';
 
 const SystemPrompts = () => {
   const navigate = useNavigate();
@@ -14,52 +21,18 @@ const SystemPrompts = () => {
   const [promptToDelete, setPromptToDelete] = useState(null);
   const [notification, setNotification] = useState(null);
   const [editingPrompt, setEditingPrompt] = useState(null);
+  const [systemPrompts, setSystemPrompts] = useState([]);
 
-  // Mock system prompts data - this will be shared with chat interface
-  const [systemPrompts, setSystemPrompts] = useState([
-    {
-      id: 1,
-      name: "General Assistant",
-      description: "Helpful, harmless, and honest responses for general queries",
-      prompt: "You are a helpful AI assistant. Provide accurate, informative, and well-structured responses based on the provided context. Be concise yet comprehensive, and always cite your sources when referencing specific documents.",
-      createdAt: new Date(Date.now() - 86400000 * 5),
-      updatedAt: new Date(Date.now() - 86400000 * 2),
-      isActive: true
-    },
-    {
-      id: 2,
-      name: "Research Analyst",
-      description: "Academic and research-focused responses with citations",
-      prompt: "You are a research analyst with expertise in academic writing and analysis. Provide detailed, evidence-based analysis with proper citations and academic rigor. Structure your responses with clear methodology, findings, and conclusions. Always reference specific documents and page numbers when available.",
-      createdAt: new Date(Date.now() - 86400000 * 10),
-      updatedAt: new Date(Date.now() - 86400000 * 1),
-      isActive: true
-    },
-    {
-      id: 3,
-      name: "Technical Expert",
-      description: "Technical documentation and code assistance",
-      prompt: "You are a technical expert specializing in software development and system architecture. Provide precise, actionable technical guidance with code examples and best practices. Focus on practical implementation details and include relevant security considerations.",
-      createdAt: new Date(Date.now() - 86400000 * 15),
-      updatedAt: new Date(Date.now() - 86400000 * 3),
-      isActive: false
-    },
-    {
-      id: 4,
-      name: "Legal Advisor",
-      description: "Legal document analysis and compliance guidance",
-      prompt: "You are a legal advisor assistant. Analyze legal documents with attention to compliance, risks, and regulatory requirements. Provide structured analysis highlighting key clauses, potential issues, and recommendations. Always include disclaimers about seeking professional legal counsel.",
-      createdAt: new Date(Date.now() - 86400000 * 8),
-      updatedAt: new Date(Date.now() - 86400000 * 4),
-      isActive: true
-    }
-  ]);
+  // Load system prompts on component mount
+  useEffect(() => {
+    loadSystemPrompts();
+  }, []);
 
   // Check if we're in edit mode from URL params
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const editId = urlParams.get('edit');
-    if (editId) {
+    if (editId && systemPrompts.length > 0) {
       const promptToEdit = systemPrompts.find(p => p.id === parseInt(editId));
       if (promptToEdit) {
         setEditingPrompt(promptToEdit);
@@ -67,20 +40,23 @@ const SystemPrompts = () => {
     }
   }, [location.search, systemPrompts]);
 
+  const loadSystemPrompts = async () => {
+    try {
+      const prompts = await getSystemPrompts();
+      setSystemPrompts(prompts);
+    } catch (error) {
+      console.error('Error loading system prompts:', error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to load system prompts. Please try again.'
+      });
+    }
+  };
+
   const handleCreatePrompt = async (promptData) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const newPrompt = {
-        id: Date.now(),
-        ...promptData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isActive: true
-      };
-      
+      const newPrompt = await createSystemPrompt(promptData);
       setSystemPrompts(prev => [newPrompt, ...prev]);
       setNotification({
         type: 'success',
@@ -91,6 +67,7 @@ const SystemPrompts = () => {
       setTimeout(() => setNotification(null), 3000);
       
     } catch (error) {
+      console.error('Error creating system prompt:', error);
       setNotification({
         type: 'error',
         message: 'Failed to create system prompt. Please try again.'
@@ -103,13 +80,9 @@ const SystemPrompts = () => {
   const handleUpdatePrompt = async (promptData) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      const updatedPrompt = await updateSystemPrompt(editingPrompt.id, promptData);
       setSystemPrompts(prev => prev.map(prompt => 
-        prompt.id === editingPrompt.id 
-          ? { ...prompt, ...promptData, updatedAt: new Date() }
-          : prompt
+        prompt.id === editingPrompt.id ? updatedPrompt : prompt
       ));
       
       setEditingPrompt(null);
@@ -123,6 +96,7 @@ const SystemPrompts = () => {
       setTimeout(() => setNotification(null), 3000);
       
     } catch (error) {
+      console.error('Error updating system prompt:', error);
       setNotification({
         type: 'error',
         message: 'Failed to update system prompt. Please try again.'
@@ -135,9 +109,7 @@ const SystemPrompts = () => {
   const handleDeletePrompt = async (promptId) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await deleteSystemPrompt(promptId);
       setSystemPrompts(prev => prev.filter(prompt => prompt.id !== promptId));
       setShowDeleteModal(false);
       setPromptToDelete(null);
@@ -150,6 +122,7 @@ const SystemPrompts = () => {
       setTimeout(() => setNotification(null), 3000);
       
     } catch (error) {
+      console.error('Error deleting system prompt:', error);
       setNotification({
         type: 'error',
         message: 'Failed to delete system prompt. Please try again.'
@@ -169,12 +142,22 @@ const SystemPrompts = () => {
     setShowDeleteModal(true);
   };
 
-  const handleToggleActive = (promptId) => {
-    setSystemPrompts(prev => prev.map(prompt => 
-      prompt.id === promptId 
-        ? { ...prompt, isActive: !prompt.isActive, updatedAt: new Date() }
-        : prompt
-    ));
+  const handleToggleActive = async (promptId) => {
+    try {
+      const prompt = systemPrompts.find(p => p.id === promptId);
+      if (!prompt) return;
+
+      const updatedPrompt = await toggleSystemPromptActive(promptId, !prompt.isActive);
+      setSystemPrompts(prev => prev.map(p => 
+        p.id === promptId ? updatedPrompt : p
+      ));
+    } catch (error) {
+      console.error('Error toggling prompt active status:', error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to update prompt status. Please try again.'
+      });
+    }
   };
 
   const handleCancelEdit = () => {

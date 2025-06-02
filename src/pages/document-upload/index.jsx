@@ -6,6 +6,13 @@ import UploadProgressIndicator from './components/UploadProgressIndicator';
 import FileList from './components/FileList';
 import ActionButton from './components/ActionButton';
 import Icon from '../../components/AppIcon';
+import { getCurrentUser } from '../../config/supabase';
+import { getProfile } from '../../services/profilesApi';
+import { 
+  getDocumentsByProfile, 
+  createDocument, 
+  updateDocumentStatus 
+} from '../../services/documentsApi';
 
 const DocumentUpload = () => {
   const navigate = useNavigate();
@@ -14,96 +21,76 @@ const DocumentUpload = () => {
   const [files, setFiles] = useState([]);
   const [currentProfile, setCurrentProfile] = useState(null);
   const [profileId, setProfileId] = useState(null);
+  const [existingDocuments, setExistingDocuments] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [error, setError] = useState(null);
-
-  // Mock profiles data - should match the dashboard data
-  const mockProfiles = [
-    {
-      id: 1,
-      name: "Research Assistant",
-      description: "Specialized in academic research and paper analysis. Helps with literature reviews, citation management, and research methodology.",
-      documentCount: 24,
-      createdAt: "2024-01-15",
-      lastUsed: "2024-01-20"
-    },
-    {
-      id: 2,
-      name: "Technical Writer",
-      description: "Expert in creating technical documentation, API guides, and software manuals. Optimized for clear, concise technical communication.",
-      documentCount: 18,
-      createdAt: "2024-01-10",
-      lastUsed: "2024-01-19"
-    },
-    {
-      id: 3,
-      name: "Legal Advisor",
-      description: "Trained on legal documents and case studies. Assists with contract analysis, legal research, and compliance documentation.",
-      documentCount: 32,
-      createdAt: "2024-01-08",
-      lastUsed: "2024-01-18"
-    },
-    {
-      id: 4,
-      name: "Marketing Strategist",
-      description: "Focused on marketing campaigns, brand strategy, and customer engagement. Helps create compelling marketing content and strategies.",
-      documentCount: 15,
-      createdAt: "2024-01-12",
-      lastUsed: "2024-01-17"
-    }
-  ];
-
-  // Mock existing documents for each profile (simulate database)
-  const mockDocuments = {
-    1: [ // Research Assistant documents
-      { id: 1, name: "machine_learning_principles.pdf", size: 2500000, uploadedAt: "2024-01-15", status: "completed" },
-      { id: 2, name: "statistical_learning_intro.docx", size: 1800000, uploadedAt: "2024-01-16", status: "completed" },
-      { id: 3, name: "research_methodology.txt", size: 500000, uploadedAt: "2024-01-17", status: "completed" }
-    ],
-    2: [ // Technical Writer documents
-      { id: 4, name: "api_documentation_guide.pdf", size: 3200000, uploadedAt: "2024-01-10", status: "completed" },
-      { id: 5, name: "software_architecture.docx", size: 2100000, uploadedAt: "2024-01-11", status: "completed" }
-    ],
-    3: [ // Legal Advisor documents
-      { id: 6, name: "contract_analysis_2024.pdf", size: 4100000, uploadedAt: "2024-01-08", status: "completed" },
-      { id: 7, name: "compliance_guidelines.docx", size: 2800000, uploadedAt: "2024-01-09", status: "completed" },
-      { id: 8, name: "legal_precedents.txt", size: 1200000, uploadedAt: "2024-01-10", status: "completed" }
-    ],
-    4: [ // Marketing Strategist documents
-      { id: 9, name: "marketing_strategy_2024.pdf", size: 1900000, uploadedAt: "2024-01-12", status: "completed" },
-      { id: 10, name: "brand_guidelines.docx", size: 1500000, uploadedAt: "2024-01-13", status: "completed" }
-    ]
-  };
 
   const supportedFormats = ['pdf', 'docx', 'txt'];
   const maxFileSize = 10 * 1024 * 1024; // 10MB
 
-  // Read profile ID from URL parameters
+  // Load profile data from URL parameter
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const profileParam = urlParams.get('profile');
-    
-    if (profileParam) {
-      const selectedProfileId = parseInt(profileParam);
-      const profile = mockProfiles.find(p => p.id === selectedProfileId);
+    const loadProfileData = async () => {
+      const urlParams = new URLSearchParams(location.search);
+      const profileParam = urlParams.get('profile');
       
-      if (profile) {
-        setProfileId(selectedProfileId);
-        setCurrentProfile(profile);
-        
-        // Load existing documents for this profile
-        const existingDocs = mockDocuments[selectedProfileId] || [];
-        setFiles(existingDocs.map(doc => ({
-          ...doc,
-          profileId: selectedProfileId,
-          file: null // Existing files don't have file objects
-        })));
-      } else {
-        setError(`Profile with ID ${profileParam} not found.`);
+      if (!profileParam) {
+        setError('No profile selected. Please select a profile from the dashboard.');
+        setIsLoadingProfile(false);
+        return;
       }
-    } else {
-      setError('No profile selected. Please select a profile from the dashboard.');
-    }
+
+      try {
+        setIsLoadingProfile(true);
+        setError(null);
+
+        // Check authentication
+        const user = getCurrentUser();
+        if (!user) {
+          setError('You must be logged in to upload documents.');
+          setIsLoadingProfile(false);
+          return;
+        }
+
+        console.log('Loading profile with ID:', profileParam);
+
+        // Load profile data - use profileParam directly as it's already a UUID string
+        const profile = await getProfile(profileParam);
+        console.log('Profile loaded:', profile);
+        
+        setProfileId(profileParam);
+        setCurrentProfile(profile);
+
+        // Load existing documents for this profile
+        const documents = await getDocumentsByProfile(profileParam);
+        console.log('Existing documents loaded:', documents);
+        
+        // Transform documents to match component expectations
+        const transformedDocuments = documents.map(doc => ({
+          id: doc.id,
+          name: doc.filename,
+          size: doc.fileSize,
+          uploadedAt: doc.createdAt,
+          status: doc.processingStatus,
+          profileId: profileParam,
+          file: null, // Existing files don't have file objects
+          progress: 100, // Existing files are already uploaded
+          error: null
+        }));
+        
+        setExistingDocuments(transformedDocuments);
+        setFiles(transformedDocuments);
+
+      } catch (err) {
+        console.error('Error loading profile data:', err);
+        setError(`Failed to load profile: ${err.message}`);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadProfileData();
   }, [location.search]);
 
   const validateFile = (file) => {
@@ -124,8 +111,8 @@ const DocumentUpload = () => {
     return Date.now() + Math.random().toString(36).substr(2, 9);
   };
 
-  const handleFileSelection = (selectedFiles) => {
-    if (!currentProfile) {
+  const handleFileSelection = async (selectedFiles) => {
+    if (!currentProfile || !profileId) {
       setError('No profile selected. Cannot upload files.');
       return;
     }
@@ -133,7 +120,7 @@ const DocumentUpload = () => {
     const fileArray = Array.from(selectedFiles);
     const validFiles = [];
 
-    fileArray.forEach(file => {
+    for (const file of fileArray) {
       const validation = validateFile(file);
       const fileId = generateFileId();
       
@@ -146,11 +133,10 @@ const DocumentUpload = () => {
           progress: 0,
           status: 'uploading',
           error: null,
-          profileId: profileId, // Associate with current profile
+          profileId: profileId,
           uploadedAt: new Date().toISOString().split('T')[0]
         };
         validFiles.push(fileObj);
-        simulateUpload(fileObj);
       } else {
         const errorFileObj = {
           id: fileId,
@@ -164,33 +150,99 @@ const DocumentUpload = () => {
         };
         validFiles.push(errorFileObj);
       }
-    });
+    }
 
+    // Add new files to the UI immediately
     setFiles(prevFiles => [...prevFiles, ...validFiles]);
+
+    // Process valid files
+    for (const fileObj of validFiles) {
+      if (fileObj.status === 'uploading') {
+        await simulateUpload(fileObj);
+      }
+    }
   };
 
-  const simulateUpload = (fileObj) => {
-    const interval = setInterval(() => {
-      setFiles(prevFiles => 
-        prevFiles.map(f => {
-          if (f.id === fileObj.id && f.status === 'uploading') {
-            const newProgress = Math.min(f.progress + Math.random() * 15, 100);
-            const newStatus = newProgress >= 100 ? 'completed' : 'uploading';
-            return { ...f, progress: newProgress, status: newStatus };
-          }
-          return f;
-        })
-      );
-    }, 200);
+  const simulateUpload = async (fileObj) => {
+    try {
+      // Create document record in database first
+      console.log('Creating document record for:', fileObj.name);
+      const documentRecord = await createDocument(profileId, {
+        filename: fileObj.name,
+        fileType: fileObj.file.type || 'application/octet-stream',
+        fileSize: fileObj.size
+      });
+      
+      console.log('Document record created:', documentRecord);
 
-    setTimeout(() => {
-      clearInterval(interval);
+      // Update file object with database ID
       setFiles(prevFiles => 
         prevFiles.map(f => 
-          f.id === fileObj.id ? { ...f, progress: 100, status: 'completed' } : f
+          f.id === fileObj.id ? { ...f, databaseId: documentRecord.id } : f
         )
       );
-    }, 3000 + Math.random() * 2000);
+
+      // Simulate upload progress
+      const interval = setInterval(() => {
+        setFiles(prevFiles => 
+          prevFiles.map(f => {
+            if (f.id === fileObj.id && f.status === 'uploading') {
+              const newProgress = Math.min(f.progress + Math.random() * 15, 100);
+              return { ...f, progress: newProgress };
+            }
+            return f;
+          })
+        );
+      }, 200);
+
+      // Complete upload after 3-5 seconds
+      setTimeout(async () => {
+        clearInterval(interval);
+        
+        try {
+          // Update document status to completed in database
+          if (documentRecord.id) {
+            await updateDocumentStatus(documentRecord.id, 'completed');
+          }
+          
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === fileObj.id ? { 
+                ...f, 
+                progress: 100, 
+                status: 'completed',
+                uploadedAt: new Date().toISOString().split('T')[0]
+              } : f
+            )
+          );
+          
+          console.log('Upload completed for:', fileObj.name);
+        } catch (err) {
+          console.error('Error updating document status:', err);
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === fileObj.id ? { 
+                ...f, 
+                status: 'error', 
+                error: 'Failed to complete upload' 
+              } : f
+            )
+          );
+        }
+      }, 3000 + Math.random() * 2000);
+
+    } catch (err) {
+      console.error('Error creating document record:', err);
+      setFiles(prevFiles => 
+        prevFiles.map(f => 
+          f.id === fileObj.id ? { 
+            ...f, 
+            status: 'error', 
+            error: 'Failed to create document record' 
+          } : f
+        )
+      );
+    }
   };
 
   const handleDragOver = (e) => {
@@ -218,20 +270,33 @@ const DocumentUpload = () => {
     }
   };
 
-  const handleDeleteFile = (fileId) => {
-    setFiles(prevFiles => prevFiles.filter(f => f.id !== fileId));
+  const handleDeleteFile = async (fileId) => {
+    try {
+      const fileToDelete = files.find(f => f.id === fileId);
+      
+      // If it's a database document, try to delete from database
+      if (fileToDelete && fileToDelete.databaseId) {
+        // Note: You might want to implement deleteDocument in documentsApi.js
+        console.log('Would delete document from database:', fileToDelete.databaseId);
+      }
+      
+      setFiles(prevFiles => prevFiles.filter(f => f.id !== fileId));
+    } catch (err) {
+      console.error('Error deleting file:', err);
+      setError('Failed to delete file');
+    }
   };
 
-  const handleRetryUpload = (fileId) => {
-    setFiles(prevFiles => 
-      prevFiles.map(f => 
-        f.id === fileId ? { ...f, progress: 0, status: 'uploading', error: null } : f
-      )
-    );
-    
+  const handleRetryUpload = async (fileId) => {
     const fileToRetry = files.find(f => f.id === fileId);
-    if (fileToRetry) {
-      simulateUpload(fileToRetry);
+    if (fileToRetry && fileToRetry.file) {
+      setFiles(prevFiles => 
+        prevFiles.map(f => 
+          f.id === fileId ? { ...f, progress: 0, status: 'uploading', error: null } : f
+        )
+      );
+      
+      await simulateUpload(fileToRetry);
     }
   };
 
@@ -241,6 +306,18 @@ const DocumentUpload = () => {
         f.id === fileId ? { ...f, status: 'cancelled' } : f
       )
     );
+  };
+
+  const handleBackToDashboard = () => {
+    navigate('/login-dashboard');
+  };
+
+  const handleBackToChat = () => {
+    if (profileId) {
+      navigate(`/chat-interface?profile=${profileId}`);
+    } else {
+      navigate('/login-dashboard');
+    }
   };
 
   const completedFiles = files.filter(f => f.status === 'completed');
@@ -269,12 +346,34 @@ const DocumentUpload = () => {
     );
   }
 
-  if (!currentProfile) {
+  if (isLoadingProfile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-text-secondary">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentProfile) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header variant="compact" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-warning-light border border-warning border-opacity-20 rounded-lg p-6 text-center">
+            <Icon name="AlertTriangle" size={48} className="text-warning mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-text-primary mb-2">No Profile Selected</h2>
+            <p className="text-text-secondary mb-4">Please select a profile from the dashboard to upload documents.</p>
+            <ActionButton
+              variant="primary"
+              onClick={() => navigate('/login-dashboard')}
+            >
+              <Icon name="ArrowLeft" size={16} className="mr-2" />
+              Back to Dashboard
+            </ActionButton>
+          </div>
         </div>
       </div>
     );
@@ -288,13 +387,23 @@ const DocumentUpload = () => {
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => navigate('/login-dashboard')}
-              className="flex items-center text-text-secondary hover:text-text-primary transition-colors duration-200"
-            >
-              <Icon name="ArrowLeft" size={20} className="mr-2" />
-              Back to Dashboard
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleBackToDashboard}
+                className="flex items-center text-text-secondary hover:text-text-primary transition-colors duration-200"
+              >
+                <Icon name="ArrowLeft" size={20} className="mr-2" />
+                Dashboard
+              </button>
+              <span className="text-text-tertiary">•</span>
+              <button
+                onClick={handleBackToChat}
+                className="flex items-center text-text-secondary hover:text-text-primary transition-colors duration-200"
+              >
+                <Icon name="MessageSquare" size={20} className="mr-2" />
+                Chat
+              </button>
+            </div>
           </div>
           
           <div className="flex items-center justify-between">
@@ -304,7 +413,7 @@ const DocumentUpload = () => {
                 Upload documents to <span className="font-medium text-primary">{currentProfile.name}</span> profile
               </p>
               <p className="text-sm text-text-tertiary mt-1">
-                Profile ID: {profileId} • {currentProfile.description}
+                {currentProfile.description}
               </p>
             </div>
             <div className="hidden sm:flex items-center bg-surface px-4 py-2 rounded-lg">
@@ -384,17 +493,17 @@ const DocumentUpload = () => {
             <div className="flex flex-col sm:flex-row gap-4 pt-6">
               <ActionButton
                 variant="primary"
-                onClick={() => navigate('/login-dashboard')}
+                onClick={handleBackToChat}
                 disabled={uploadingFiles.length > 0}
                 className="flex-1"
               >
-                <Icon name="Check" size={20} className="mr-2" />
-                Complete Upload ({newlyUploadedFiles.filter(f => f.status === 'completed').length} files processed)
+                <Icon name="MessageSquare" size={20} className="mr-2" />
+                Go to Chat ({newlyUploadedFiles.filter(f => f.status === 'completed').length} files ready)
               </ActionButton>
               
               <ActionButton
                 variant="secondary"
-                onClick={() => setFiles(files.filter(f => f.file === null))} // Keep existing files, remove newly uploaded ones
+                onClick={() => setFiles(existingDocuments)} // Keep existing files, remove newly uploaded ones
                 className="flex-1"
               >
                 <Icon name="X" size={20} className="mr-2" />
@@ -415,7 +524,8 @@ const DocumentUpload = () => {
                 <li>• Maximum file size: 10MB per file</li>
                 <li>• Multiple files can be uploaded simultaneously</li>
                 <li>• Documents will be processed and indexed for this specific profile</li>
-                <li>• All uploads are associated with Profile ID: {profileId}</li>
+                <li>• All uploads are associated with the <strong>{currentProfile.name}</strong> profile</li>
+                <li>• Use the chat interface to query your uploaded documents</li>
               </ul>
             </div>
           </div>
