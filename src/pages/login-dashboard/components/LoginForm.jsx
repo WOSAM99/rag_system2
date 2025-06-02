@@ -58,19 +58,18 @@ const LoginForm = ({ onLogin, isLoading, error }) => {
       return;
     }
 
-    // Check mock credentials
-    if (formData.email !== mockCredentials.email || formData.password !== mockCredentials.password) {
-      setValidationErrors({
-        general: `Invalid credentials. Use email: ${mockCredentials.email} and password: ${mockCredentials.password}`
-      });
-      return;
-    }
-
+    // For demo purposes, accept any valid email/password combination
+    // You can also use the demo credentials provided
     await onLogin(formData);
   };
 
   const handleDemoLogin = () => {
     setFormData(mockCredentials);
+  };
+
+  const handleClearAuth = () => {
+    localStorage.removeItem('jwt_token');
+    window.location.reload();
   };
 
   return (
@@ -174,11 +173,25 @@ const LoginForm = ({ onLogin, isLoading, error }) => {
             <Icon name="Zap" size={20} className="mr-2" />
             Use Demo Credentials
           </ActionButton>
+
+          <ActionButton
+            type="button"
+            variant="ghost"
+            className="w-full text-text-tertiary hover:text-text-secondary"
+            onClick={handleClearAuth}
+            disabled={isLoading}
+          >
+            <Icon name="RotateCcw" size={16} className="mr-2" />
+            Clear Auth & Reload
+          </ActionButton>
         </div>
 
         <div className="text-center">
           <p className="text-sm text-text-secondary">
-            Demo credentials: <span className="font-medium">{mockCredentials.email}</span> / <span className="font-medium">{mockCredentials.password}</span>
+            <span className="font-medium">Demo credentials:</span> {mockCredentials.email} / {mockCredentials.password}
+          </p>
+          <p className="text-xs text-text-tertiary mt-1">
+            Or use any valid email and password (6+ characters)
           </p>
         </div>
       </form>

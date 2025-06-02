@@ -30,7 +30,8 @@ const Header = ({ variant = 'default' }) => {
 
   const handleLogout = () => {
     setIsProfileMenuOpen(false);
-    navigate('/login');
+    localStorage.removeItem('jwt_token');
+    window.location.reload();
   };
 
   if (variant === 'compact') {
