@@ -1,4 +1,5 @@
 import { supabase, getCurrentUser } from '../config/supabase'
+import { deleteCollection } from './backendApi'
 
 // Get all profiles for the current user
 export const getProfiles = async () => {
@@ -124,6 +125,16 @@ export const deleteProfile = async (profileId) => {
   try {
     const user = getCurrentUser()
     if (!user) throw new Error('User not authenticated')
+
+    // First, delete the ChromaDB collection
+    try {
+      await deleteCollection(profileId)
+      console.log('Successfully deleted ChromaDB collection')
+    } catch (error) {
+      console.error('Error deleting ChromaDB collection:', error)
+      // Continue with profile deletion even if collection deletion fails
+      // as the collection might not exist or other non-critical errors
+    }
 
     const { error } = await supabase
       .from('profiles')

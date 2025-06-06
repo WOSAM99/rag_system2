@@ -1,4 +1,5 @@
 import { supabase, getCurrentUser } from '../config/supabase'
+import { deleteFileFromCollection } from './backendApi'
 
 // Get all documents for a specific profile
 export const getDocumentsByProfile = async (profileId) => {
@@ -144,6 +145,19 @@ export const deleteDocument = async (documentId) => {
 
     if (docError) throw new Error('Document not found or access denied')
 
+    // First delete from ChromaDB
+    try {
+      await deleteFileFromCollection({
+        collection_name: docData.profile_id,
+        file_id: documentId
+      })
+      console.log('Successfully deleted document from ChromaDB')
+    } catch (error) {
+      console.error('Error deleting document from ChromaDB:', error)
+      // Continue with Supabase deletion even if ChromaDB deletion fails
+    }
+
+    // Then delete from Supabase
     const { error } = await supabase
       .from('documents')
       .delete()

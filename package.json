@@ -15,6 +15,8 @@
     "date-fns": "^4.1.0",
     "dotenv": "^16.0.1",
     "framer-motion": "^10.16.4",
+    "jose": "^6.0.11",
+    "jsrsasign": "^11.1.0",
     "lucide-react": "^0.484.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -29,9 +31,10 @@
     "tailwindcss-fluid-type": "^2.0.7"
   },
   "scripts": {
-    "start": "vite",
+    "start": "vite --host",
     "build": "vite build --sourcemap",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "dev": "vite"
   },
   "eslintConfig": {
     "extends": [
@@ -57,9 +60,9 @@
     "@tailwindcss/line-clamp": "^0.1.0",
     "@tailwindcss/typography": "^0.5.16",
     "@vitejs/plugin-react": "4.3.4",
-    "autoprefixer": "10.4.2",
-    "postcss": "8.4.8",
-    "tailwindcss": "3.4.6",
+    "autoprefixer": "^10.4.2",
+    "postcss": "^8.4.8",
+    "tailwindcss": "^3.4.6",
     "vite": "5.0.0",
     "vite-tsconfig-paths": "3.6.0"
   }

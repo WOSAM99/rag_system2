@@ -283,9 +283,9 @@ const SystemPrompts = () => {
                             prompt.isActive ? 'bg-success' : 'bg-text-tertiary'
                           }`} />
                           <div className="flex-1">
-                            <h3 className="font-semibold text-text-primary text-lg">
+                          <h3 className="font-semibold text-text-primary text-lg">
                               {prompt.name}
-                            </h3>
+                          </h3>
                             <p className="text-text-secondary text-sm mt-1">
                               {prompt.description}
                             </p>
@@ -324,13 +324,13 @@ const SystemPrompts = () => {
                         <h4 className="text-sm font-medium text-text-primary mb-2">Prompt Content:</h4>
                         <p className="text-text-secondary text-sm leading-relaxed line-clamp-4">
                           {prompt.prompt}
-                        </p>
+                      </p>
                       </div>
                       
                       <div className="flex items-center justify-between text-xs text-text-tertiary">
                         <div className="flex items-center gap-4">
                           <div className="flex items-center gap-1">
-                            <Icon name="Calendar" size={12} />
+                          <Icon name="Calendar" size={12} />
                             <span>Created: {formatDate(prompt.createdAt)}</span>
                           </div>
                           <div className="flex items-center gap-1">

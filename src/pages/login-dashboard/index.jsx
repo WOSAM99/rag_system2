@@ -9,6 +9,7 @@ import CreateProfileForm from './components/CreateProfileForm';
 import Icon from '../../components/AppIcon';
 import { ensureUserExists, getCurrentUser } from '../../config/supabase';
 import { getProfiles, createProfile, updateProfile, deleteProfile } from '../../services/profilesApi';
+import { generateUserJWT } from '../../utils/jwt';
 
 const LoginDashboard = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -53,15 +54,20 @@ const LoginDashboard = () => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Mock JWT token
-      const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mocktoken';
-      localStorage.setItem('jwt_token', mockToken);
-      
+      // --- FIX: Generate JWT and store it BEFORE calling getCurrentUser ---
+      const demoUserId = '35d79892-6471-411c-9264-5f7551076819'; // Hardcoded DEMO_USER_ID
+      const jwt = generateUserJWT(demoUserId);
+      localStorage.setItem('jwt_token', jwt);
+      // --- END FIX ---
+
       // Get current user info (this generates UUID if needed)
       const currentUser = getCurrentUser();
       if (!currentUser) {
         throw new Error('Failed to get user information');
       }
+      // Generate JWT with only user_id in payload - This line is now redundant due to the fix above
+      // const jwt = generateUserJWT(currentUser.id);
+      // localStorage.setItem('jwt_token', jwt);
       
       // Ensure user exists in Supabase
       const userData = {

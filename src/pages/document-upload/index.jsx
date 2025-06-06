@@ -11,8 +11,10 @@ import { getProfile } from '../../services/profilesApi';
 import { 
   getDocumentsByProfile, 
   createDocument, 
-  updateDocumentStatus 
+  updateDocumentStatus,
+  deleteDocument
 } from '../../services/documentsApi';
+import { uploadDocumentToBackend } from '../../services/backendApi';
 
 const DocumentUpload = () => {
   const navigate = useNavigate();
@@ -158,14 +160,14 @@ const DocumentUpload = () => {
     // Process valid files
     for (const fileObj of validFiles) {
       if (fileObj.status === 'uploading') {
-        await simulateUpload(fileObj);
+        await processDocumentUpload(fileObj);
       }
     }
   };
 
-  const simulateUpload = async (fileObj) => {
+  const processDocumentUpload = async (fileObj) => {
     try {
-      // Create document record in database first
+      // Create document record in Supabase first for UI tracking
       console.log('Creating document record for:', fileObj.name);
       const documentRecord = await createDocument(profileId, {
         filename: fileObj.name,
@@ -182,66 +184,67 @@ const DocumentUpload = () => {
         )
       );
 
-      // Simulate upload progress
-      const interval = setInterval(() => {
-        setFiles(prevFiles => 
-          prevFiles.map(f => {
-            if (f.id === fileObj.id && f.status === 'uploading') {
-              const newProgress = Math.min(f.progress + Math.random() * 15, 100);
-              return { ...f, progress: newProgress };
-            }
-            return f;
-          })
-        );
-      }, 200);
-
-      // Complete upload after 3-5 seconds
-      setTimeout(async () => {
-        clearInterval(interval);
-        
-        try {
-          // Update document status to completed in database
-          if (documentRecord.id) {
-            await updateDocumentStatus(documentRecord.id, 'completed');
-          }
-          
+      // Upload to FastAPI backend with real progress tracking
+      console.log('Uploading to FastAPI backend:', fileObj.name, 'Profile ID:', profileId);
+      
+      const backendResponse = await uploadDocumentToBackend(
+        fileObj.file,
+        profileId,
+        (progressPercent) => {
+          // Update progress in real-time
           setFiles(prevFiles => 
             prevFiles.map(f => 
-              f.id === fileObj.id ? { 
-                ...f, 
-                progress: 100, 
-                status: 'completed',
-                uploadedAt: new Date().toISOString().split('T')[0]
-              } : f
-            )
-          );
-          
-          console.log('Upload completed for:', fileObj.name);
-        } catch (err) {
-          console.error('Error updating document status:', err);
-          setFiles(prevFiles => 
-            prevFiles.map(f => 
-              f.id === fileObj.id ? { 
-                ...f, 
-                status: 'error', 
-                error: 'Failed to complete upload' 
-              } : f
+              f.id === fileObj.id ? { ...f, progress: progressPercent } : f
             )
           );
         }
-      }, 3000 + Math.random() * 2000);
+      );
+      
+      console.log('Backend upload successful:', backendResponse);
+
+      // Update document status to completed in Supabase
+      if (documentRecord.id) {
+        await updateDocumentStatus(documentRecord.id, 'completed');
+      }
+      
+      // Update UI to show completion
+      setFiles(prevFiles => 
+        prevFiles.map(f => 
+          f.id === fileObj.id ? { 
+            ...f, 
+            progress: 100, 
+            status: 'completed',
+            uploadedAt: new Date().toISOString().split('T')[0],
+            backendResponse: backendResponse // Store backend response for reference
+          } : f
+        )
+      );
+      
+      console.log('Upload completed successfully for:', fileObj.name);
 
     } catch (err) {
-      console.error('Error creating document record:', err);
+      console.error('Error uploading document:', err);
+      
+      // Update UI to show error
       setFiles(prevFiles => 
         prevFiles.map(f => 
           f.id === fileObj.id ? { 
             ...f, 
             status: 'error', 
-            error: 'Failed to create document record' 
+            error: err.message || 'Failed to upload document'
           } : f
         )
       );
+
+      // If we created a document record but upload failed, update its status
+      const fileData = files.find(f => f.id === fileObj.id);
+      if (fileData && fileData.databaseId) {
+        try {
+          await updateDocumentStatus(fileData.databaseId, 'failed');
+        } catch (statusError) {
+          console.error('Error updating document status to failed:', statusError);
+        }
+      }
     }
   };
 
@@ -274,12 +277,12 @@ const DocumentUpload = () => {
     try {
       const fileToDelete = files.find(f => f.id === fileId);
       
-      // If it's a database document, try to delete from database
-      if (fileToDelete && fileToDelete.databaseId) {
-        // Note: You might want to implement deleteDocument in documentsApi.js
-        console.log('Would delete document from database:', fileToDelete.databaseId);
+      // Only delete from database if it's an existing document
+      if (fileToDelete && !fileToDelete.file) { // fileToDelete.file is null for existing documents
+        await deleteDocument(fileId); // This will handle both Supabase and ChromaDB deletion
       }
       
+      // Remove from UI state
       setFiles(prevFiles => prevFiles.filter(f => f.id !== fileId));
     } catch (err) {
       console.error('Error deleting file:', err);
@@ -290,13 +293,13 @@ const DocumentUpload = () => {
   const handleRetryUpload = async (fileId) => {
     const fileToRetry = files.find(f => f.id === fileId);
     if (fileToRetry && fileToRetry.file) {
-      setFiles(prevFiles => 
-        prevFiles.map(f => 
-          f.id === fileId ? { ...f, progress: 0, status: 'uploading', error: null } : f
-        )
-      );
-      
-      await simulateUpload(fileToRetry);
+    setFiles(prevFiles => 
+      prevFiles.map(f => 
+        f.id === fileId ? { ...f, progress: 0, status: 'uploading', error: null } : f
+      )
+    );
+    
+      await processDocumentUpload(fileToRetry);
     }
   };
 
@@ -388,11 +391,11 @@ const DocumentUpload = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <button
+            <button
                 onClick={handleBackToDashboard}
-                className="flex items-center text-text-secondary hover:text-text-primary transition-colors duration-200"
-              >
-                <Icon name="ArrowLeft" size={20} className="mr-2" />
+              className="flex items-center text-text-secondary hover:text-text-primary transition-colors duration-200"
+            >
+              <Icon name="ArrowLeft" size={20} className="mr-2" />
                 Dashboard
               </button>
               <span className="text-text-tertiary">•</span>
@@ -402,7 +405,7 @@ const DocumentUpload = () => {
               >
                 <Icon name="MessageSquare" size={20} className="mr-2" />
                 Chat
-              </button>
+            </button>
             </div>
           </div>
           
@@ -480,11 +483,11 @@ const DocumentUpload = () => {
                   )}
                 </div>
               </div>
-              <FileList
-                files={files}
-                onDelete={handleDeleteFile}
-                onRetry={handleRetryUpload}
-              />
+            <FileList
+              files={files}
+              onDelete={handleDeleteFile}
+              onRetry={handleRetryUpload}
+            />
             </div>
           )}
 
