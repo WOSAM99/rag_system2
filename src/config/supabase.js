@@ -25,17 +25,18 @@ const getUserId = () => {
 
 // Helper function to get current user from JWT token
 export const getCurrentUser = () => {
-  const token = localStorage.getItem('jwt_token')
-  if (!token) return null
+  // Remove token check
+  // const token = localStorage.getItem('jwt_token')
+  // if (!token) return null
   
   try {
     // For demo purposes, use the existing user ID that owns the profiles
     return {
-      id: getUserId(), // Uses the existing database user ID
+      id: '35d79892-6471-411c-9264-5f7551076819', // Hardcoded demo user ID
       email: 'demo@ragSystem.com' // This matches the database user
     }
   } catch (error) {
-    console.error('Error decoding token:', error)
+    console.error('Error getting user:', error)
     return null
   }
 }

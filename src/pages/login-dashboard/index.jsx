@@ -54,20 +54,11 @@ const LoginDashboard = () => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // --- FIX: Generate JWT and store it BEFORE calling getCurrentUser ---
-      const demoUserId = '35d79892-6471-411c-9264-5f7551076819'; // Hardcoded DEMO_USER_ID
-      const jwt = generateUserJWT(demoUserId);
-      localStorage.setItem('jwt_token', jwt);
-      // --- END FIX ---
-
-      // Get current user info (this generates UUID if needed)
+      // Get current user info
       const currentUser = getCurrentUser();
       if (!currentUser) {
         throw new Error('Failed to get user information');
       }
-      // Generate JWT with only user_id in payload - This line is now redundant due to the fix above
-      // const jwt = generateUserJWT(currentUser.id);
-      // localStorage.setItem('jwt_token', jwt);
       
       // Ensure user exists in Supabase
       const userData = {
@@ -75,9 +66,9 @@ const LoginDashboard = () => {
         email: credentials.email || 'user@example.com'
       };
       
-      console.log('Creating user with data:', userData); // Debug log
+      console.log('Creating user with data:', userData);
       const userResult = await ensureUserExists(userData);
-      console.log('User creation result:', userResult); // Debug log
+      console.log('User creation result:', userResult);
       
       if (!userResult) {
         throw new Error('Failed to create or verify user in database');

@@ -5,7 +5,7 @@ const QueryInput = ({ onSendMessage, isLoading, disabled }) => {
   const [query, setQuery] = useState('');
   const [charCount, setCharCount] = useState(0);
   const textareaRef = useRef(null);
-  const maxChars = 500;
+  const maxChars = 2000;
 
   useEffect(() => {
     setCharCount(query.length);

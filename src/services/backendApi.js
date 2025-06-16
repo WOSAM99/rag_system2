@@ -5,6 +5,7 @@ import * as jose from 'jose'
 // Helper function to get JWT token from localStorage
 const getAuthToken = async () => {
   const user = getCurrentUser()
+  console.log('User =======:', user)
   if (!user) {
     console.warn('No user found')
     return null
@@ -12,6 +13,8 @@ const getAuthToken = async () => {
 
   // Create a new token with the correct signature
   const secret = new TextEncoder().encode('123456') // This should match the backend's JWT_SECRET_KEY
+  console.log('User =======:', user)
+
   const payload = {
     user_id: user.id,
     iat: Math.floor(Date.now() / 1000),
@@ -32,13 +35,14 @@ const getAuthToken = async () => {
 // Helper function to get headers with authentication
 const getAuthHeaders = async (contentType = 'application/json') => {
   const headers = getHeaders(contentType)
-  const token = await getAuthToken()
   
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  } else {
-    throw new Error('No authentication token found. Please log in again.')
-  }
+  // Authentication temporarily disabled
+  // const token = await getAuthToken()
+  // if (token) {
+  //   headers['Authorization'] = `Bearer ${token}`
+  // } else {
+  //   throw new Error('No authentication token found. Please log in again.')
+  // }
   
   return headers
 }
@@ -48,14 +52,15 @@ export const uploadDocumentToBackend = async (file, profileId, onProgress = null
   try {
     console.log(`Uploading document to backend: ${file.name} for profile: ${profileId}`)
     
-    const token = await getAuthToken()
-    if (!token) {
-      throw new Error('No authentication token found. Please log in again.')
-    }
+    // Remove token check
+    // const token = await getAuthToken()
+    // if (!token) {
+    //   throw new Error('No authentication token found. Please log in again.')
+    // }
     
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('profileID', profileId) // Backend expects 'profileID'
+    formData.append('profileID', profileId)
     
     console.log('Upload form data - Profile ID:', profileId)
     
@@ -91,12 +96,6 @@ export const uploadDocumentToBackend = async (file, profileId, onProgress = null
           } catch (e) {
             // Use default error message if can't parse response
           }
-          
-          // Handle authentication errors specifically
-          if (xhr.status === 401 || xhr.status === 403) {
-            errorMessage = 'Authentication failed. Please log in again.'
-          }
-          
           reject(new Error(errorMessage))
         }
       })
@@ -114,8 +113,8 @@ export const uploadDocumentToBackend = async (file, profileId, onProgress = null
       xhr.timeout = BACKEND_CONFIG.TIMEOUTS.UPLOAD
       xhr.open('POST', buildUrl(BACKEND_CONFIG.ENDPOINTS.UPLOAD_DOCUMENT))
       
-      // Set authorization header AFTER opening the request
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      // Remove authorization header
+      // xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       
       xhr.send(formData)
     })
@@ -131,10 +130,11 @@ export const queryRagPipeline = async (query, profileId, systemPrompt, kRetrieva
   try {
     console.log(`Querying RAG pipeline: "${query}" for profile: ${profileId}`)
     
-    const token = await getAuthToken()
-    if (!token) {
-      throw new Error('No authentication token found. Please log in again.')
-    }
+    // Remove token check
+    // const token = await getAuthToken()
+    // if (!token) {
+    //   throw new Error('No authentication token found. Please log in again.')
+    // }
 
     // Match exactly what the backend ChatRequest model expects
     const requestBody = {
@@ -149,7 +149,8 @@ export const queryRagPipeline = async (query, profileId, systemPrompt, kRetrieva
     
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      // Remove Authorization header
+      // 'Authorization': `Bearer ${token}`
     }
     
     const response = await fetch(buildUrl(BACKEND_CONFIG.ENDPOINTS.CHAT_QUERY), {
@@ -166,18 +167,12 @@ export const queryRagPipeline = async (query, profileId, systemPrompt, kRetrieva
       } catch (e) {
         // Use default error message if can't parse response
       }
-      
-      // Handle authentication errors specifically
-      if (response.status === 401 || response.status === 403) {
-        errorMessage = 'Authentication failed. Please log in again.'
-      }
-      
       throw new Error(errorMessage)
     }
     
     const result = await response.json()
     console.log('RAG query successful:', result)
-    return result.result // Extract the actual response data from the result wrapper
+    return result.result
     
   } catch (error) {
     console.error('Error in queryRagPipeline:', error)
