@@ -25,10 +25,10 @@ const LoginDashboard = () => {
   useEffect(() => {
     // Check if user is already authenticated
     const token = localStorage.getItem('jwt_token');
-    if (token) {
-      setIsAuthenticated(true);
-      loadProfiles();
-    }
+    // if (token) {
+    setIsAuthenticated(true);
+    loadProfiles();
+    // }
     setIsLoading(false);
   }, []);
 
